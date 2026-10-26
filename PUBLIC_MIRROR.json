@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "Printerrenta/psi-rental-service",
-  "sourceCommit": "f541331de00ce7865402c7185b97cb3fba33e4a1",
+  "sourceCommit": "5260a3e90af65d4528488d9b45a51ddcb0ad1d5e",
   "sourceBranch": "main",
   "history": "Independent public snapshots; no private Git history",
   "files": [
@@ -15,7 +15,7 @@
     },
     {
       "path": ".github/workflows/verify.yml",
-      "sha256": "3d6b9719898e4afb71b6bf0a20961c8e266a535eb906bb5f9ebe0ca23723a4eb"
+      "sha256": "b57506c0bfe94373da59fbcb50a2f33a43283c1f8bf10a1f22b73b0d0962c3b5"
     },
     {
       "path": ".gitignore",
@@ -31,7 +31,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "ebe67ebe2e02f9953c207791950c51de8c0f7f20a4de015d65af1865b9aeeae9"
+      "sha256": "f7a7b2d85c60a12b5fdf0b8f152b8873f2932ce4aaeba874e0d128b94f2baae1"
     },
     {
       "path": "mvnw",
