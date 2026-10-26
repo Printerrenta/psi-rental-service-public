@@ -1,0 +1,13 @@
+{
+  "eventId": "00000000-0000-0000-0000-000000000001",
+  "schemaVersion": 1,
+  "type": "RepairRequestCreated",
+  "occurredAt": "2026-10-21T12:00:00Z",
+  "aggregateId": "00000000-0000-0000-0000-000000000002",
+  "ownerSubject": "alice",
+  "data": {
+    "contractId": "00000000-0000-0000-0000-000000000003",
+    "printerId": "00000000-0000-0000-0000-000000000004",
+    "status": "OPEN"
+  }
+}
