@@ -44,6 +44,13 @@ public class ContractService {
   @Transactional
   public RentalContract create(CreateContract input) {
     access.requireStaff();
+    var original = requests.findById(input.rentalRequestId())
+        .orElseThrow(() -> new RentalNotFoundException(input.rentalRequestId()));
+    var selectedPrinter = input.printerId() != null ? input.printerId() : original.getPrinterId();
+    if (selectedPrinter == null) throw new RentalConflictException("Choose a printer when creating the contract");
+    // All device operations lock printer before request, including concurrent contract creation.
+    var printer = printers.lockById(selectedPrinter)
+        .orElseThrow(() -> new PrinterNotFoundException(selectedPrinter));
     var request =
         requests
             .lockById(input.rentalRequestId())
@@ -51,17 +58,19 @@ public class ContractService {
     if (!input.requestVersion().equals(request.getVersion())) {
       throw new RentalConflictException("Request changed; reload it and use its current version");
     }
-    if (request.getStatus() != RentalStatus.APPROVED || request.getPrinterId() == null) {
+    if (request.getStatus() != RentalStatus.APPROVED) {
       throw new RentalConflictException(
-          "Contract requires an APPROVED request with a catalog printer");
+          "Contract requires an APPROVED request");
     }
     if (contracts.existsByRentalRequestId(request.getId())) {
       throw new RentalConflictException("A contract already exists for this request");
     }
-    var printer =
-        printers
-            .findById(request.getPrinterId())
-            .orElseThrow(() -> new PrinterNotFoundException(request.getPrinterId()));
+    if (input.printerId() == null && !selectedPrinter.equals(request.getPrinterId()))
+      throw new RentalConflictException("Request changed; reload it and choose the contract printer");
+    if (Boolean.TRUE.equals(request.getColorPrintingRequired()) && !printer.isColorCapable())
+      throw new IllegalArgumentException("Request requires a color printer");
+    if (contracts.hasPrinterOverlap(selectedPrinter, request.getId(), request.getStartDate(), request.getEndDate()))
+      throw new RentalConflictException("Printer already has a rental contract for this period");
     if (!printer.isColorCapable()
         && (input.includedColorPages() != 0 || input.colorPagePrice().signum() != 0)) {
       throw new IllegalArgumentException(
@@ -103,11 +112,10 @@ public class ContractService {
       throw new RentalConflictException("Only a DRAFT contract can be activated");
     }
     if (request.getStatus() != RentalStatus.APPROVED
-        || !contract.getPrinterId().equals(request.getPrinterId())
         || !contract.getStartDate().equals(request.getStartDate())
         || !contract.getEndDate().equals(request.getEndDate())) {
       throw new RentalConflictException(
-          "Approved request must match the contract printer and dates");
+          "Approved request must match the contract dates");
     }
     var today = java.time.LocalDate.now(clock);
     if (today.isBefore(contract.getStartDate()) || today.isAfter(contract.getEndDate())) {
@@ -121,14 +129,14 @@ public class ContractService {
     if (!printer.isColorCapable() && input.initialColorReading() != 0) {
       throw new IllegalArgumentException("Monochrome printer requires a zero color reading");
     }
-    if (requests.hasOverlap(
+    if (contracts.hasPrinterOverlap(
         printer.getId(),
         request.getId(),
         contract.getStartDate(),
-        contract.getEndDate(),
-        java.util.List.of(RentalStatus.IN_REVIEW, RentalStatus.APPROVED))) {
-      throw new RentalConflictException("Printer is already assigned for this period");
+        contract.getEndDate())) {
+      throw new RentalConflictException("Printer already has a rental contract for this period");
     }
+    printers.clearOtherCustomerLocation(printer.getId(), request.getOwnerSubject());
     contract.activate(input, clock.instant());
     return persist(contract, "ContractActivated", request.getOwnerSubject());
   }

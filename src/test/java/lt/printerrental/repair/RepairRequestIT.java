@@ -66,7 +66,7 @@ class RepairRequestIT {
   void clean() {
     db.execute(
         "TRUNCATE contract_terms, contract_accounting, repair_requests, rental_contracts,"
-            + " rental_requests, printers, outbox_events");
+            + " rental_requests, printers, outbox_events, rental_request_locations, printer_locations, customer_locations");
   }
 
   private UUID activeContract(String owner) {

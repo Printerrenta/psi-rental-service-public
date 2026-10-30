@@ -14,4 +14,10 @@ public record CreateRentalRequest(
     @NotNull Boolean colorPrintingRequired,
     @NotNull LocalDate startDate,
     @NotNull LocalDate endDate,
-    @Size(max = 2000) String notes) {}
+    @Size(max = 2000) String notes,
+    @Size(max = 255) String ownerSubject) {
+  public CreateRentalRequest(String customerName, String customerEmail, Integer estimatedMonthlyPages,
+      Boolean colorPrintingRequired, LocalDate startDate, LocalDate endDate, String notes) {
+    this(customerName,customerEmail,estimatedMonthlyPages,colorPrintingRequired,startDate,endDate,notes,null);
+  }
+}

@@ -48,15 +48,9 @@ public class PrinterAssignmentService {
     if (request.getColorPrintingRequired() && !printer.isColorCapable()) {
       throw new RentalConflictException("Request requires a color printer");
     }
-    if (requests.hasOverlap(
-        printer.getId(),
-        id,
-        request.getStartDate(),
-        request.getEndDate(),
-        List.of(RentalStatus.IN_REVIEW, RentalStatus.APPROVED))) {
-      throw new RentalConflictException("Printer is already assigned for this period");
-    }
+    // Legacy preference only. Requests do not reserve inventory; contracts do.
     request.assignPrinter(printer.getId(), clock.instant());
+    // Location ownership changes only when a contract actually reserves the device.
     var saved = requests.saveAndFlush(request);
     events.record(
         "PrinterAssigned",

@@ -57,6 +57,8 @@ public class SecurityConfiguration {
             a -> {
               a.dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll();
               a.requestMatchers("/hello", "/health").permitAll();
+              a.requestMatchers("/api/rental-requests/locations", "/api/rental-requests/locations/**")
+                  .authenticated();
               a.requestMatchers("/api/repair-requests", "/api/repair-requests/**")
                   .authenticated()
                   .requestMatchers(HttpMethod.POST, "/api/rental-requests")

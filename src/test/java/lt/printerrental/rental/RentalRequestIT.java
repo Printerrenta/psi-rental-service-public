@@ -322,7 +322,9 @@ class RentalRequestIT {
         contract.getEndDate(),
         UUID.fromString(next));
     change(next, "IN_REVIEW", 0, 200);
-    assign(next, contract.getPrinterId(), 1, 409);
+    change(next, "APPROVED", 1, 200);
+    assertThatThrownBy(() -> adminContracts().create(contractForDevice(next, contract.getPrinterId(), 2L)))
+        .isInstanceOf(RentalConflictException.class);
     var before = repository.findById(contract.getRentalRequestId()).orElseThrow();
 
     mvc.perform(
@@ -349,12 +351,13 @@ class RentalRequestIT {
     assertThat(request.getUpdatedAt()).isEqualTo(stored.getCompletedAt());
     assertThat(request.getPrinterId()).isEqualTo(contract.getPrinterId());
     assertThat(request.getEndDate()).isEqualTo(contract.getEndDate());
-    assign(next, contract.getPrinterId(), 1, 200);
     mvc.perform(get("/api/contracts/" + contract.getId()))
         .andExpect(jsonPath("$.status").value("COMPLETED"))
         .andExpect(jsonPath("$.totalMonoPages").value(150));
     mvc.perform(get("/api/contracts?size=1"))
         .andExpect(jsonPath("$.content[0].finalMonoReading").value(250));
+    assertThat(adminContracts().create(contractForDevice(next, contract.getPrinterId(), 2L)).getPrinterId())
+        .isEqualTo(contract.getPrinterId());
   }
 
   @Test
@@ -744,22 +747,17 @@ class RentalRequestIT {
   }
 
   @Test
-  void activationRechecksPrinterOverlapAndSnapshot() throws Exception {
+  void activationIgnoresRequestPreferenceButRechecksOtherContracts() throws Exception {
     var contract = todayContract(true);
     var other = approvedRequest(true, contract.getStartDate());
-    // Simulate conflicting historical data: normal assignment API prevents this.
-    jdbc.update(
-        "UPDATE rental_requests SET printer_id = ? WHERE id = ?",
-        contract.getPrinterId(),
-        UUID.fromString(other));
+    var otherContract = adminContracts().create(contractInput(other));
+    // Simulate historical contract corruption; the normal creation endpoint prevents this.
+    jdbc.update("UPDATE rental_contracts SET printer_id = ? WHERE id = ?", contract.getPrinterId(), otherContract.getId());
     activate(contract, new ActivateContract(0L, 100L, 0L, contract.getStartDate()), 409);
     change(other, "CANCELLED", 3, 200);
-    jdbc.update(
-        "UPDATE rental_requests SET printer_id = ? WHERE id = ?",
-        printer(true),
-        contract.getRentalRequestId());
-    activate(contract, new ActivateContract(0L, 100L, 0L, contract.getStartDate()), 409);
-    assertThat(contracts.findById(contract.getId()).orElseThrow().getInitialMonoReading()).isNull();
+    jdbc.update("UPDATE rental_requests SET printer_id = ? WHERE id = ?", printer(true), contract.getRentalRequestId());
+    activate(contract, new ActivateContract(0L, 100L, 0L, contract.getStartDate()), 200);
+    assertThat(contracts.findById(contract.getId()).orElseThrow().getInitialMonoReading()).isEqualTo(100L);
   }
 
   @Test
@@ -1083,17 +1081,16 @@ class RentalRequestIT {
     change(id, "APPROVED", 0, 409);
     change(id, "IN_REVIEW", 0, 200);
     mvc.perform(get(PATH + "?status=IN_REVIEW")).andExpect(jsonPath("$.totalElements").value(1));
-    change(id, "APPROVED", 1, 409);
-    assign(id, printer(true), 1, 200);
-    change(id, "APPROVED", 2, 200);
+    change(id, "APPROVED", 1, 200);
     mvc.perform(get(PATH + "/" + id))
         .andExpect(jsonPath("$.status").value("APPROVED"))
-        .andExpect(jsonPath("$.version").value(3));
-    change(id, "COMPLETED", 3, 200);
-    change(id, "CANCELLED", 4, 409);
+        .andExpect(jsonPath("$.version").value(2))
+        .andExpect(jsonPath("$.printerId").isEmpty());
+    change(id, "COMPLETED", 2, 200);
+    change(id, "CANCELLED", 3, 409);
     var stored = repository.findById(UUID.fromString(id)).orElseThrow();
     assertThat(stored.getStatus()).isEqualTo(RentalStatus.COMPLETED);
-    assertThat(stored.getVersion()).isEqualTo(4);
+    assertThat(stored.getVersion()).isEqualTo(3);
     assertThat(stored.getCreatedAt()).isEqualTo(Instant.parse(created.get("createdAt").asText()));
     assertThat(stored.getUpdatedAt()).isAfterOrEqualTo(stored.getCreatedAt());
   }
@@ -1184,81 +1181,72 @@ class RentalRequestIT {
   }
 
   @Test
-  void blocksOverlapAndReleasesPrinterAfterCancellation() throws Exception {
+  void requestsWithoutDevicesDoNotReserveAndContractsReleaseAfterCancellation() throws Exception {
     var first = create().get("id").asText();
     var second = create().get("id").asText();
-    var printerId = printer(true);
-    change(first, "IN_REVIEW", 0, 200);
-    change(second, "IN_REVIEW", 0, 200);
-    assign(first, printerId, 1, 200);
-    assign(second, printerId, 1, 409);
-    change(first, "APPROVED", 2, 200);
-    assign(second, printerId, 1, 409);
-    change(first, "CANCELLED", 3, 200);
-    assign(second, printerId, 1, 200);
+    var device = printer(true);
+    var legacy = create().get("id").asText();
+    change(legacy, "IN_REVIEW", 0, 200);
+    assign(legacy, device, 1, 200); // Historical preference must not reserve inventory.
+    for (var id : java.util.List.of(first, second)) {
+      change(id, "IN_REVIEW", 0, 200);
+      change(id, "APPROVED", 1, 200);
+      mvc.perform(get(PATH + "/" + id)).andExpect(jsonPath("$.printerId").isEmpty());
+    }
+    var firstContract = adminContracts().create(contractForDevice(first, device, 2L));
+    assertThat(firstContract.getPrinterId()).isEqualTo(device);
+    assertThat(repository.findById(UUID.fromString(first)).orElseThrow().getPrinterId()).isNull();
+    assertThatThrownBy(() -> adminContracts().create(contractForDevice(second, device, 2L)))
+        .isInstanceOf(RentalConflictException.class).hasMessageContaining("rental contract");
+    change(first, "CANCELLED", 2, 200);
+    assertThat(adminContracts().create(contractForDevice(second, device, 2L)).getPrinterId()).isEqualTo(device);
+  }
+
+  private CreateContract contractForDevice(String id, UUID device, long version) {
+    return new CreateContract(UUID.fromString(id), version, new java.math.BigDecimal("25.50"),
+        1000, 100, new java.math.BigDecimal("0.0125"), new java.math.BigDecimal("0.0850"), device);
   }
 
   @Test
-  void reassigningReleasesOldPrinterAndChecksInclusiveDateBoundaries() throws Exception {
+  void contractReservationsCheckInclusiveDateBoundaries() throws Exception {
     var first = create().get("id").asText();
-    var oldPrinter = printer(true);
-    change(first, "IN_REVIEW", 0, 200);
-    assign(first, oldPrinter, 1, 200);
-    assign(first, printer(true), 2, 200);
-    var second = create().get("id").asText();
-    change(second, "IN_REVIEW", 0, 200);
-    assign(second, oldPrinter, 1, 200);
+    var device = printer(true);
+    change(first, "IN_REVIEW", 0, 200); change(first, "APPROVED", 1, 200);
+    adminContracts().create(contractForDevice(first, device, 2L));
     var data = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(body());
     var boundary = LocalDate.parse(data.get("endDate").asText());
     for (int gap : new int[] {0, 1}) {
       data.put("startDate", boundary.plusDays(gap).toString());
       data.put("endDate", boundary.plusDays(gap + 2).toString());
-      var response =
-          mvc.perform(
-                  post(PATH)
-                      .contentType(MediaType.APPLICATION_JSON)
-                      .content(mapper.writeValueAsString(data)))
-              .andExpect(status().isCreated())
-              .andReturn();
+      var response = mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content(data.toString()))
+          .andExpect(status().isCreated()).andReturn();
       var id = mapper.readTree(response.getResponse().getContentAsString()).get("id").asText();
-      change(id, "IN_REVIEW", 0, 200);
-      assign(id, oldPrinter, 1, gap == 0 ? 409 : 200);
+      change(id, "IN_REVIEW", 0, 200); change(id, "APPROVED", 1, 200);
+      mvc.perform(post("/api/contracts").contentType(MediaType.APPLICATION_JSON)
+          .content(mapper.writeValueAsString(contractForDevice(id, device, 2L))))
+          .andExpect(gap == 0 ? status().isConflict() : status().isCreated());
     }
   }
 
   @Test
-  void concurrentAssignmentsCannotDoubleBookPrinter() throws Exception {
-    var first = UUID.fromString(create().get("id").asText());
-    var second = UUID.fromString(create().get("id").asText());
-    change(first.toString(), "IN_REVIEW", 0, 200);
-    change(second.toString(), "IN_REVIEW", 0, 200);
-    var printerId = printer(true);
-    adminContext(); // The workers inherit staff identity after MockMvc clears the caller context.
+  void concurrentContractCreationCannotDoubleBookPrinter() throws Exception {
+    var first = create().get("id").asText(); var second = create().get("id").asText();
+    for (var id : java.util.List.of(first, second)) {
+      change(id, "IN_REVIEW", 0, 200); change(id, "APPROVED", 1, 200);
+    }
+    var device = printer(true); adminContext();
     var start = new java.util.concurrent.CountDownLatch(1);
-    try (var executor =
-        new org.springframework.security.concurrent.DelegatingSecurityContextExecutorService(
-            java.util.concurrent.Executors.newFixedThreadPool(2))) {
-      var jobs =
-          java.util.stream.Stream.of(first, second)
-              .map(
-                  id ->
-                      executor.submit(
-                          () -> {
-                            start.await();
-                            try {
-                              assignments.assign(id, new AssignPrinter(printerId, 1L));
-                              return "assigned";
-                            } catch (RentalConflictException expected) {
-                              return "conflict";
-                            }
-                          }))
-              .toList();
+    try (var executor = new org.springframework.security.concurrent.DelegatingSecurityContextExecutorService(
+        java.util.concurrent.Executors.newFixedThreadPool(2))) {
+      var jobs = java.util.stream.Stream.of(first, second).map(id -> executor.submit(() -> {
+        start.await();
+        try { adminContracts().create(contractForDevice(id, device, 2L)); return "created"; }
+        catch (RentalConflictException expected) { return "conflict"; }
+      })).toList();
       start.countDown();
-      assertThat(
-              java.util.List.of(
-                  jobs.get(0).get(20, java.util.concurrent.TimeUnit.SECONDS),
-                  jobs.get(1).get(20, java.util.concurrent.TimeUnit.SECONDS)))
-          .containsExactlyInAnyOrder("assigned", "conflict");
+      assertThat(java.util.List.of(jobs.get(0).get(20, java.util.concurrent.TimeUnit.SECONDS),
+          jobs.get(1).get(20, java.util.concurrent.TimeUnit.SECONDS)))
+          .containsExactlyInAnyOrder("created", "conflict");
     }
   }
 

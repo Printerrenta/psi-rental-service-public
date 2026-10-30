@@ -18,7 +18,7 @@ class ServiceAuthorizationTest {
     var contracts = mock(ContractRepository.class);
     var events = mock(EventRecorder.class);
     var catalog = new PrinterService(printers, access);
-    var rentals = new RentalRequestService(requests, Clock.systemUTC(), user, access, events);
+    var rentals = new RentalRequestService(requests, Clock.systemUTC(), user, access, events, mock(CustomerDirectory.class));
     var assignments =
         new PrinterAssignmentService(printers, requests, Clock.systemUTC(), access, events);
     var contract =

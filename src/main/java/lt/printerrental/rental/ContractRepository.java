@@ -23,4 +23,16 @@ public interface ContractRepository extends JpaRepository<RentalContract, UUID> 
       @org.springframework.data.repository.query.Param("id") UUID id);
 
   boolean existsByRentalRequestId(UUID rentalRequestId);
+
+  @org.springframework.data.jpa.repository.Query("""
+      select (count(c) > 0) from RentalContract c, RentalRequest r
+      where c.rentalRequestId = r.id and c.printerId = :printerId
+      and c.rentalRequestId <> :requestId and c.status in ('DRAFT', 'ACTIVE')
+      and r.status <> 'CANCELLED' and c.startDate <= :endDate and c.endDate >= :startDate
+      """)
+  boolean hasPrinterOverlap(
+      @org.springframework.data.repository.query.Param("printerId") UUID printerId,
+      @org.springframework.data.repository.query.Param("requestId") UUID requestId,
+      @org.springframework.data.repository.query.Param("startDate") java.time.LocalDate startDate,
+      @org.springframework.data.repository.query.Param("endDate") java.time.LocalDate endDate);
 }

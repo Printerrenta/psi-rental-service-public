@@ -19,22 +19,36 @@ public class RentalRequestService {
   private final lt.printerrental.events.EventRecorder events;
   private final CurrentUser currentUser;
   private final RentalAccessPolicy access;
+  private final lt.printerrental.auth.CustomerDirectory customers;
 
   public RentalRequestService(
       RentalRequestRepository repository,
       Clock clock,
       CurrentUser currentUser,
       RentalAccessPolicy access,
-      lt.printerrental.events.EventRecorder events) {
+      lt.printerrental.events.EventRecorder events,
+      lt.printerrental.auth.CustomerDirectory customers) {
     this.repository = repository;
     this.clock = clock;
     this.events = events;
     this.currentUser = currentUser;
     this.access = access;
+    this.customers = customers;
   }
 
   @Transactional
   public RentalResponse create(CreateRentalRequest input) {
+    String owner=currentUser.subject();
+    if (input.ownerSubject()!=null) {
+      access.requireStaff();
+      if (input.ownerSubject().isBlank()) throw new IllegalArgumentException("Pasirinkite kliento paskyrą.");
+      var customer=customers.get(input.ownerSubject());
+      if (!input.ownerSubject().equals(customer.subject()) || customer.role()!=lt.printerrental.auth.UserRole.CUSTOMER)
+        throw new IllegalArgumentException("Pasirinkta paskyra nėra klientas.");
+      owner=customer.subject();
+      input=new CreateRentalRequest(input.customerName(),customer.email(),input.estimatedMonthlyPages(),
+          input.colorPrintingRequired(),input.startDate(),input.endDate(),input.notes());
+    }
     if (input.startDate().isBefore(LocalDate.now(clock))) {
       throw new IllegalArgumentException("startDate must be today or later (UTC)");
     }
@@ -42,7 +56,7 @@ public class RentalRequestService {
       throw new IllegalArgumentException("endDate must be on or after startDate");
     }
     var request = new RentalRequest(input, clock.instant());
-    request.setOwnerSubject(currentUser.subject());
+    request.setOwnerSubject(owner);
     var saved = repository.saveAndFlush(request);
     events.record(
         "RentalRequestCreated",
@@ -77,9 +91,6 @@ public class RentalRequestService {
     var request = repository.lockById(id).orElseThrow(() -> new RentalNotFoundException(id));
     if (!input.version().equals(request.getVersion())) {
       throw new RentalConflictException("Request changed; reload it and use its current version");
-    }
-    if (input.status() == RentalStatus.APPROVED && request.getPrinterId() == null) {
-      throw new RentalConflictException("Assign a catalog printer before approving the request");
     }
     if (repository.hasActiveContract(id)) {
       throw new RentalConflictException(

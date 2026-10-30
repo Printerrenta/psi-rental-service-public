@@ -26,6 +26,7 @@ class RentalRequestServiceTest {
   @Mock RentalRequestRepository repository;
   @Mock lt.printerrental.auth.CurrentUser currentUser;
   @Mock lt.printerrental.events.EventRecorder events;
+  @Mock lt.printerrental.auth.CustomerDirectory customers;
   RentalRequestService service;
 
   @BeforeEach
@@ -38,12 +39,34 @@ class RentalRequestServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC),
             currentUser,
             new lt.printerrental.auth.RentalAccessPolicy(currentUser),
-            events);
+            events, customers);
   }
 
   private CreateRentalRequest input(LocalDate start, LocalDate end) {
     return new CreateRentalRequest(
         " Jonas ", "jonas@example.com", 1000, false, start, end, " Notes ");
+  }
+  @Test void staffSelectsVerifiedCustomerInsteadOfBecomingOwner() {
+    when(customers.get("alice")).thenReturn(new lt.printerrental.auth.AppUser("alice","real@example.com","Alice",lt.printerrental.auth.UserRole.CUSTOMER));
+    when(repository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+    var result=service.create(new CreateRentalRequest("Alice","untrusted@example.com",1000,false,TODAY,TODAY,null,"alice"));
+    var captor=org.mockito.ArgumentCaptor.forClass(RentalRequest.class);
+    org.mockito.Mockito.verify(repository).saveAndFlush(captor.capture());
+    assertThat(captor.getValue().getOwnerSubject()).isEqualTo("alice");
+    assertThat(result.customerEmail()).isEqualTo("real@example.com");
+    org.mockito.Mockito.verify(events).record(org.mockito.ArgumentMatchers.eq("RentalRequestCreated"),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq("alice"),org.mockito.ArgumentMatchers.any());
+  }
+  @Test void customerCannotSupplyAnOwnerEvenByCallingServiceDirectly() {
+    when(currentUser.isStaff()).thenReturn(false);
+    assertThatThrownBy(() -> service.create(new CreateRentalRequest("Bob","bob@example.com",1000,false,TODAY,TODAY,null,"bob")))
+        .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    verifyNoInteractions(customers, repository, events);
+  }
+  @Test void rejectsSelectedStaffAccount() {
+    when(customers.get("employee")).thenReturn(new lt.printerrental.auth.AppUser("employee","staff@example.com","Employee",lt.printerrental.auth.UserRole.EMPLOYEE));
+    assertThatThrownBy(() -> service.create(new CreateRentalRequest("Staff","staff@example.com",1000,false,TODAY,TODAY,null,"employee")))
+        .isInstanceOf(IllegalArgumentException.class);
+    verifyNoInteractions(repository, events);
   }
 
   @Test
@@ -102,16 +125,16 @@ class RentalRequestServiceTest {
   }
 
   @Test
-  void approvesRequestAndUpdatesTimestamp() {
+  void approvesRequestWithoutPrinterAndUpdatesTimestamp() {
     var entity = new RentalRequest(input(TODAY, TODAY), NOW.minusSeconds(60));
     entity.transitionTo(RentalStatus.IN_REVIEW, NOW.minusSeconds(30));
-    entity.assignPrinter(UUID.randomUUID(), NOW.minusSeconds(20));
     ReflectionTestUtils.setField(entity, "version", 0L);
     when(repository.lockById(entity.getId())).thenReturn(Optional.of(entity));
     when(repository.saveAndFlush(entity)).thenReturn(entity);
     var result =
         service.changeStatus(entity.getId(), new ChangeRentalStatus(RentalStatus.APPROVED, 0L));
     assertThat(result.status()).isEqualTo(RentalStatus.APPROVED);
+    assertThat(result.printerId()).isNull();
     assertThat(result.updatedAt()).isEqualTo(NOW);
     assertThat(result.createdAt()).isEqualTo(NOW.minusSeconds(60));
   }

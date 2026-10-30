@@ -74,7 +74,7 @@ public class RentalContract {
   RentalContract(RentalRequest request, CreateContract input, Instant now) {
     id = UUID.randomUUID();
     rentalRequestId = request.getId();
-    printerId = request.getPrinterId();
+    printerId = input.printerId() != null ? input.printerId() : request.getPrinterId();
     customerName = request.getCustomerName();
     customerEmail = request.getCustomerEmail();
     startDate = request.getStartDate();
