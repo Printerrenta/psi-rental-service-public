@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "Printerrenta/psi-rental-service",
-  "sourceCommit": "b0625ba10f5c0244da253610167cc989ec5178e1",
+  "sourceCommit": "0ccbf173b19f186a283c0de19dcc8541f49b1eb4",
   "sourceBranch": "main",
   "history": "Independent public snapshots; no private Git history",
   "files": [
@@ -67,11 +67,11 @@
     },
     {
       "path": "src/main/java/lt/printerrental/accounting/AccountingSnapshot.java",
-      "sha256": "fb9022e3fc9d66945125632f0a2becd76169ddfb9c1f06524a1c0e97bc7aebc6"
+      "sha256": "cb454652aa3528bdb8d97fd088cc68515fae69cd0f0a716b919df17e475ef9cb"
     },
     {
       "path": "src/main/java/lt/printerrental/accounting/AccountingSnapshotPublisher.java",
-      "sha256": "ebbbf841449c0124edd4d61c180d5f1ed7b9c0b856920bce580ebf6dd6147b47"
+      "sha256": "b4fa85ecc4b748fbdc9a8f13fdf4c5a58cd50ada7af5e62beeeb4d190d7b2890"
     },
     {
       "path": "src/main/java/lt/printerrental/accounting/ContractAccountingController.java",
@@ -211,7 +211,11 @@
     },
     {
       "path": "src/main/java/lt/printerrental/rental/CompleteContract.java",
-      "sha256": "a3577ee0a339f17d588de8557359df5b9105d46bccf6d7061e0a0bcfd628ac25"
+      "sha256": "d9f10ea027a4e689b0ab36da8193aa34acaf75117accec45d1485ce241755e4e"
+    },
+    {
+      "path": "src/main/java/lt/printerrental/rental/CompletionReadings.java",
+      "sha256": "7081c4f09be6b38c8677de3f644a75380991ea7e9dc7708d54ff3e2281526ab8"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractAccountingObserver.java",
@@ -231,7 +235,7 @@
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractService.java",
-      "sha256": "99fb367799d3c763a50bda5a04f0b64b38b50bf7f4d45c1ebfd721435e50576d"
+      "sha256": "bfc1f5ea89499682dcb56f9e0d2dfc2354a9702ca0205935ac11c8cf9f8ee3b1"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractStatus.java",
@@ -255,7 +259,7 @@
     },
     {
       "path": "src/main/java/lt/printerrental/rental/LocationService.java",
-      "sha256": "41d786e1330da4b51be5360927f482a5e36e328f106e9205b8ac60398fa97d17"
+      "sha256": "e7d0d9f47cb45e0bcb41c304d1419fbcc3c61987d25012ebc502ab081099d91e"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/Printer.java",
@@ -291,7 +295,7 @@
     },
     {
       "path": "src/main/java/lt/printerrental/rental/RentalContract.java",
-      "sha256": "34b6ebb84d085e10d5895de310466726f11b433b82917e27c1a269f69817ca75"
+      "sha256": "b908af2b98540cf636396b490616a9bf3b292e74107520cf9f7ff9049b71ed24"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/RentalNotFoundException.java",
@@ -406,6 +410,10 @@
       "sha256": "014205545ff15d6d516019610de46cd38c0351f573f75b3d711361ad6e3b450a"
     },
     {
+      "path": "src/main/resources/db/migration/V12__completion_counters.sql",
+      "sha256": "8abef521ac68bdee843f4ad37eb6928eabd1bcea960e6638806b98d4ea314ef0"
+    },
+    {
       "path": "src/main/resources/db/migration/V1__create_rental_requests.sql",
       "sha256": "5869e17d18d6cd822c585e411d7525bed6409c5d648ffbd404c87ec44c699b2f"
     },
@@ -443,7 +451,7 @@
     },
     {
       "path": "src/test/java/lt/printerrental/accounting/ContractAccountingIT.java",
-      "sha256": "88babbc0b7a61c4a9ba116e4744d8e4e367157c4e4b23fa3c7d87fd2c1fad4ff"
+      "sha256": "1a5b3f9226724a686c7ff4980891996a4fe10e8e4444fd6f2590f7bc60a3f2e8"
     },
     {
       "path": "src/test/java/lt/printerrental/architecture/ServiceArchitectureTest.java",
@@ -482,12 +490,24 @@
       "sha256": "cae352ed2a1ed1347e82baffb11ae3a07939c6980bdef663f64b499991da9ea8"
     },
     {
+      "path": "src/test/java/lt/printerrental/rental/CompletionReadingsTest.java",
+      "sha256": "01f8c25d9c798d2865731ef27baff1c7e7b01d75e46ca1226bd7e73af728e146"
+    },
+    {
       "path": "src/test/java/lt/printerrental/rental/ContractCompletionControllerTest.java",
-      "sha256": "af2e0f43d8fbbfba08a63393ebed2e1e888e012c868cba2d882d9ff109307bbe"
+      "sha256": "709872cf940530c7d06981ff73dd0f1c8bec48ab8760ad4c19895f776d212646"
+    },
+    {
+      "path": "src/test/java/lt/printerrental/rental/ContractCompletionTest.java",
+      "sha256": "b6bf0c259db1b87120456dd9da69303955fe34df5ddf6d48d872ff57090f99b2"
     },
     {
       "path": "src/test/java/lt/printerrental/rental/LocationIT.java",
       "sha256": "2b99a7cb4443e2bd9841a101d0bb00f4d173c0d9a667371602311c85473b63b7"
+    },
+    {
+      "path": "src/test/java/lt/printerrental/rental/LocationPerformanceIT.java",
+      "sha256": "4a2c1a336e4f9e0b45a0692388b422a02f164dda8961573e704397e9b92c1f8c"
     },
     {
       "path": "src/test/java/lt/printerrental/rental/PrinterServiceTest.java",
@@ -499,7 +519,7 @@
     },
     {
       "path": "src/test/java/lt/printerrental/rental/RentalRequestIT.java",
-      "sha256": "1bef54d1219e1fc18c300a5ebc82c1bc6959b295182d77bb93f6fd5afbbbeea1"
+      "sha256": "50c059c380bc0d5d854cf89dff2e70bf594c255bbf9b91e3eadebb6bdf166a35"
     },
     {
       "path": "src/test/java/lt/printerrental/rental/RentalRequestServiceTest.java",
@@ -511,7 +531,7 @@
     },
     {
       "path": "src/test/java/lt/printerrental/rental/ServiceAuthorizationTest.java",
-      "sha256": "88e18fde5003f452e34448f2f94be93ede0ee8137f18929a1c44b759b302ebf1"
+      "sha256": "63a8dabd49bddb6f4bb136b34135484097767fad9ced90ba4e086c9aed21a21e"
     },
     {
       "path": "src/test/java/lt/printerrental/repair/RepairRequestControllerTest.java",
@@ -592,6 +612,7 @@
     "src/main/java/lt/printerrental/rental/AssignPrinter.java",
     "src/main/java/lt/printerrental/rental/ChangeRentalStatus.java",
     "src/main/java/lt/printerrental/rental/CompleteContract.java",
+    "src/main/java/lt/printerrental/rental/CompletionReadings.java",
     "src/main/java/lt/printerrental/rental/ContractAccountingObserver.java",
     "src/main/java/lt/printerrental/rental/ContractController.java",
     "src/main/java/lt/printerrental/rental/ContractNotFoundException.java",
@@ -640,6 +661,7 @@
     "src/main/resources/application.properties",
     "src/main/resources/db/migration/V10__outbox_delivery_leases.sql",
     "src/main/resources/db/migration/V11__customer_locations.sql",
+    "src/main/resources/db/migration/V12__completion_counters.sql",
     "src/main/resources/db/migration/V1__create_rental_requests.sql",
     "src/main/resources/db/migration/V2__printer_rental_requirements.sql",
     "src/main/resources/db/migration/V3__printer_catalog.sql",
@@ -659,8 +681,11 @@
     "src/test/java/lt/printerrental/events/EventWireContractTest.java",
     "src/test/java/lt/printerrental/messaging/OutboxDeliveryIT.java",
     "src/test/java/lt/printerrental/neon/NeonEnvironmentPostProcessorTest.java",
+    "src/test/java/lt/printerrental/rental/CompletionReadingsTest.java",
     "src/test/java/lt/printerrental/rental/ContractCompletionControllerTest.java",
+    "src/test/java/lt/printerrental/rental/ContractCompletionTest.java",
     "src/test/java/lt/printerrental/rental/LocationIT.java",
+    "src/test/java/lt/printerrental/rental/LocationPerformanceIT.java",
     "src/test/java/lt/printerrental/rental/PrinterServiceTest.java",
     "src/test/java/lt/printerrental/rental/RentalRequestControllerTest.java",
     "src/test/java/lt/printerrental/rental/RentalRequestIT.java",

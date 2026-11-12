@@ -30,7 +30,7 @@ class ServiceAuthorizationTest {
             user,
             access,
             events,
-            org.mockito.Mockito.mock(ContractAccountingObserver.class));
+            org.mockito.Mockito.mock(ContractAccountingObserver.class), mock(CompletionReadings.class));
     for (Runnable action :
         java.util.List.<Runnable>of(
             () -> catalog.create(null),

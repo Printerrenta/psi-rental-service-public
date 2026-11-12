@@ -60,6 +60,7 @@ public class AccountingSnapshotPublisher implements ContractAccountingObserver {
         contract.getStartDate(),
         s.baseline(),
         s.revision(),
-        settings.terms(id));
+        settings.terms(id),
+        contract.getFinalCounters());
   }
 }

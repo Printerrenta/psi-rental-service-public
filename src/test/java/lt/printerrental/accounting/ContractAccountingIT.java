@@ -49,6 +49,8 @@ class ContractAccountingIT {
   @Autowired JdbcTemplate db;
   @Autowired MockMvc mvc;
   @Autowired ContractAccountingService accounting;
+  @Autowired lt.printerrental.rental.ContractService lifecycle;
+  @MockitoBean lt.printerrental.rental.CompletionReadings completionReadings;
   UUID id;
   LocalDate start, end;
 
@@ -107,6 +109,29 @@ class ContractAccountingIT {
   ContractAccountingService.Initialize init() {
     return new ContractAccountingService.Initialize(
         true, List.of(100L, 20L, 10L, 5L), new BigDecimal("21"), 14);
+  }
+
+  @Test
+  void completionRollsBackOnMeteringFailureThenPublishesAllAcceptedCounters() {
+    accounting.initialize(id, init());
+    var active = lifecycle.activate(id, new lt.printerrental.rental.ActivateContract(0L, 100L, 20L, start));
+    // The modern flow deliberately leaves the request's printer preference empty.
+    db.update("UPDATE rental.rental_requests SET printer_id=NULL WHERE id=?", active.getRentalRequestId());
+    var counts = List.of(250L, 40L, 30L, 10L);
+    var input = new lt.printerrental.rental.CompleteContract(active.getVersion(), 250L, 40L, LocalDate.now(ZoneOffset.UTC), counts);
+    org.mockito.Mockito.doThrow(new lt.printerrental.transport.UpstreamUnavailableException())
+        .when(completionReadings).record(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    assertThatThrownBy(() -> lifecycle.complete(id, input))
+        .isInstanceOf(lt.printerrental.transport.UpstreamUnavailableException.class);
+    assertThat(lifecycle.get(id).getStatus()).isEqualTo(lt.printerrental.rental.ContractStatus.ACTIVE);
+    assertThat(lifecycle.get(id).getFinalCounters()).isNull();
+    org.mockito.Mockito.reset(completionReadings);
+    var completed = lifecycle.complete(id, input);
+    assertThat(completed.getFinalCounters()).isEqualTo(counts);
+    assertThat(lifecycle.get(id).getFinalCounters()).isEqualTo(counts);
+    assertThat(accounting.get(id).finalCounters()).isEqualTo(counts);
+    assertThat(accounting.get(id).status()).isEqualTo("COMPLETED");
+    org.mockito.Mockito.verify(completionReadings).record(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(input));
   }
 
   @Test

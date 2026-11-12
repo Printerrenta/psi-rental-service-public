@@ -445,17 +445,27 @@ class RentalRequestIT {
   }
 
   @Test
-  void completionRejectsMismatchedRequestSnapshot() throws Exception {
+  void completionRejectsMismatchedRequestDates() throws Exception {
     var contract = activeContract(true);
     jdbc.update(
-        "UPDATE rental_requests SET printer_id = ? WHERE id = ?",
-        printer(true),
+        "UPDATE rental_requests SET end_date = ? WHERE id = ?",
+        contract.getEndDate().plusDays(1),
         contract.getRentalRequestId());
     complete(contract, new CompleteContract(1L, 100L, 20L, contract.getStartDate()), 409);
     assertThat(contracts.findById(contract.getId()).orElseThrow().getStatus())
         .isEqualTo(ContractStatus.ACTIVE);
     assertThat(repository.findById(contract.getRentalRequestId()).orElseThrow().getStatus())
         .isEqualTo(RentalStatus.APPROVED);
+  }
+
+  @Test
+  void completionUsesTheContractPrinterInsteadOfTheLegacyRequestPreference() throws Exception {
+    var contract = activeContract(true);
+    jdbc.update("UPDATE rental_requests SET printer_id=? WHERE id=?", printer(true), contract.getRentalRequestId());
+    complete(contract, new CompleteContract(1L, 100L, 20L, contract.getStartDate()), 200);
+    var completed = contracts.findById(contract.getId()).orElseThrow();
+    assertThat(completed.getPrinterId()).isEqualTo(contract.getPrinterId());
+    assertThat(completed.getStatus()).isEqualTo(ContractStatus.COMPLETED);
   }
 
   @Test

@@ -21,6 +21,7 @@ public class ContractService {
   private final lt.printerrental.events.EventRecorder events;
   private final CurrentUser currentUser;
   private final RentalAccessPolicy access;
+  private final CompletionReadings completionReadings;
 
   public ContractService(
       ContractRepository contracts,
@@ -30,7 +31,9 @@ public class ContractService {
       CurrentUser currentUser,
       RentalAccessPolicy access,
       lt.printerrental.events.EventRecorder events,
-      ContractAccountingObserver accounting) {
+      ContractAccountingObserver accounting,
+      CompletionReadings completionReadings) {
+    this.completionReadings = completionReadings;
     this.accounting = accounting;
     this.contracts = contracts;
     this.requests = requests;
@@ -161,11 +164,10 @@ public class ContractService {
       throw new RentalConflictException("Only an ACTIVE contract can be completed");
     }
     if (request.getStatus() != RentalStatus.APPROVED
-        || !contract.getPrinterId().equals(request.getPrinterId())
         || !contract.getStartDate().equals(request.getStartDate())
         || !contract.getEndDate().equals(request.getEndDate())) {
       throw new RentalConflictException(
-          "Approved request must match the contract printer and dates");
+          "Approved request must match the contract dates");
     }
     if (input.finalReadingDate().isAfter(java.time.LocalDate.now(clock))) {
       throw new IllegalArgumentException("Final reading date must not be in the future (UTC)");
@@ -175,6 +177,7 @@ public class ContractService {
     }
     var now = clock.instant();
     contract.complete(input, now);
+    completionReadings.record(contract, input);
     request.transitionTo(RentalStatus.COMPLETED, now);
     // Both managed entities are flushed and committed in this transaction.
     return persist(contract, "ContractCompleted", request.getOwnerSubject());

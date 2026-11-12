@@ -50,15 +50,27 @@ public class LocationService {
 
   private Location map(java.sql.ResultSet rs) throws java.sql.SQLException {
     UUID id = rs.getObject("id", UUID.class);
-    var placements = jdbc.query(sql("SELECT printer_id, version FROM printer_locations WHERE location_id=? ORDER BY printer_id"),
-        (r,n) -> new Placement(r.getObject(1,UUID.class), r.getLong(2)), id);
     return new Location(id, rs.getString("owner_subject"), rs.getString("name"),
-        rs.getString("address"), rs.getString("city"), rs.getLong("version"), placements);
+        rs.getString("address"), rs.getString("city"), rs.getLong("version"), List.of());
+  }
+  private List<Location> withPlacements(List<Location> locations) {
+    if (locations.isEmpty()) return locations;
+    var grouped = new HashMap<UUID, List<Placement>>();
+    var placeholders = String.join(",", Collections.nCopies(locations.size(), "?"));
+    jdbc.query(sql("SELECT location_id,printer_id,version FROM printer_locations WHERE location_id IN ("
+        + placeholders + ") ORDER BY location_id,printer_id"), (org.springframework.jdbc.core.RowCallbackHandler) row ->
+        grouped.computeIfAbsent(row.getObject("location_id", UUID.class), key -> new ArrayList<>())
+            .add(new Placement(row.getObject("printer_id", UUID.class), row.getLong("version"))),
+        locations.stream().map(Location::id).toArray());
+    return locations.stream().map(location -> new Location(location.id(), location.ownerSubject(),
+        location.name(), location.address(), location.city(), location.version(),
+        List.copyOf(grouped.getOrDefault(location.id(), List.of())))).toList();
   }
   public Location get(UUID id) {
     var rows = jdbc.query(sql("SELECT * FROM customer_locations WHERE id=?"), (r,n) -> map(r), id);
     if (rows.isEmpty()) throw new IllegalArgumentException("Lokacija nerasta.");
-    var location = rows.getFirst(); access.requireOwner(location.ownerSubject()); return location;
+    var location = rows.getFirst(); access.requireOwner(location.ownerSubject());
+    return withPlacements(List.of(location)).getFirst();
   }
   public LocationPage list(int page, int size) {
     String condition = user.isStaff() ? "" : " WHERE owner_subject=?";
@@ -67,7 +79,7 @@ public class LocationService {
     args.add(size); args.add((long) page*size);
     var rows = jdbc.query(sql("SELECT * FROM customer_locations")+condition+" ORDER BY created_at,id LIMIT ? OFFSET ?",
         (r,n) -> map(r), args.toArray());
-    return new LocationPage(rows,page,size,count);
+    return new LocationPage(withPlacements(rows),page,size,count);
   }
   @Transactional
   public Location create(Input input) {
@@ -123,10 +135,15 @@ public class LocationService {
   }
   public RequestPage listRequests(int page,int size) {
     var result=requests.list(null,page,size);
-    var rows=result.getContent().stream().map(r -> {
-      var ids=jdbc.queryForList(sql("SELECT location_id FROM rental_request_locations WHERE request_id=?"),UUID.class,r.id());
-      return new RequestView(r,ids.isEmpty()?null:ids.getFirst());
-    }).toList();
+    var locations = new HashMap<UUID, UUID>();
+    if (!result.isEmpty()) {
+      var placeholders = String.join(",", Collections.nCopies(result.getNumberOfElements(), "?"));
+      jdbc.query(sql("SELECT request_id,location_id FROM rental_request_locations WHERE request_id IN ("
+          + placeholders + ")"), (org.springframework.jdbc.core.RowCallbackHandler) row ->
+          locations.put(row.getObject("request_id", UUID.class), row.getObject("location_id", UUID.class)),
+          result.getContent().stream().map(RentalResponse::id).toArray());
+    }
+    var rows=result.getContent().stream().map(r -> new RequestView(r,locations.get(r.id()))).toList();
     return new RequestPage(rows,page,size,result.getTotalElements());
   }
   @Transactional

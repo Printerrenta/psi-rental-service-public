@@ -68,6 +68,9 @@ public class RentalContract {
   private Long finalColorReading;
   private LocalDate finalReadingDate;
   private Instant completedAt;
+  @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+  @Column(columnDefinition = "jsonb")
+  private java.util.List<Long> finalCounters;
 
   protected RentalContract() {}
 
@@ -185,6 +188,10 @@ public class RentalContract {
     return completedAt;
   }
 
+  public java.util.List<Long> getFinalCounters() {
+    return finalCounters == null ? null : java.util.List.copyOf(finalCounters);
+  }
+
   public Long getTotalMonoPages() {
     return finalMonoReading == null ? null : finalMonoReading - initialMonoReading;
   }
@@ -208,6 +215,9 @@ public class RentalContract {
     finalMonoReading = input.finalMonoReading();
     finalColorReading = input.finalColorReading();
     finalReadingDate = input.finalReadingDate();
+    finalCounters = input.finalCounters() == null
+        ? java.util.List.of(input.finalMonoReading(), input.finalColorReading(), 0L, 0L)
+        : java.util.List.copyOf(input.finalCounters());
     completedAt = now.truncatedTo(ChronoUnit.MICROS);
     status = ContractStatus.COMPLETED;
   }

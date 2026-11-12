@@ -41,6 +41,16 @@ class ContractCompletionControllerTest {
   @MockitoBean ContractService service;
 
   @ParameterizedTest
+  @ValueSource(strings = {"[]", "[1,2,3]", "[1,2,3,4,5]", "[1,-2,3,4]", "[1,null,3,4]", "[1,0.5,3,4]"})
+  void rejectsMalformedFourCounterCompletion(String counters) throws Exception {
+    var body = (ObjectNode) mapper.readTree(VALID);
+    body.set("finalCounters", mapper.readTree(counters));
+    mvc.perform(post(PATH).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+        .andExpect(status().isBadRequest());
+    verifyNoInteractions(service);
+  }
+
+  @ParameterizedTest
   @ValueSource(strings = {"version", "finalMonoReading", "finalColorReading", "finalReadingDate"})
   void requiresEveryField(String field) throws Exception {
     var json = (ObjectNode) mapper.readTree(VALID);
