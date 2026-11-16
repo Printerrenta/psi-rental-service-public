@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "Printerrenta/psi-rental-service",
-  "sourceCommit": "0ccbf173b19f186a283c0de19dcc8541f49b1eb4",
+  "sourceCommit": "75a3a318faf96db3d8213aa83aae897c11515a97",
   "sourceBranch": "main",
   "history": "Independent public snapshots; no private Git history",
   "files": [
@@ -31,7 +31,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "f7a7b2d85c60a12b5fdf0b8f152b8873f2932ce4aaeba874e0d128b94f2baae1"
+      "sha256": "263908eddf80e8631500c9133b98d0751cc2dcca05a1bd07c8800caa0bfd6081"
     },
     {
       "path": "mvnw",

@@ -8,6 +8,16 @@ have separate PostgreSQL databases and restricted credentials; the gateway has n
 Controllers delegate use cases, domain objects enforce invariants, and HTTP/JDBC/JPA
 adapters implement local ports. Business models and SQL are not shared between services.
 
+## Contract workflow
+
+- Staff create contracts from rental requests and activate them with initial
+  device readings. Rental request approval alone does not reserve a printer.
+- Contract accounting stores four-counter baselines and dated tariff revisions.
+- Completion validates final cumulative readings through metering. Pending
+  readings must be reviewed before the contract can be completed.
+- Locations and repair requests remain subject to owner and role checks.
+- Version fields protect mutations against stale browser state.
+
 ## Build and test
 
 ```sh
