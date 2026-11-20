@@ -7,6 +7,7 @@ import java.time.Clock;
 import lt.printerrental.auth.*;
 import lt.printerrental.events.EventRecorder;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionOperations;
 
 class ServiceAuthorizationTest {
   @Test
@@ -18,7 +19,15 @@ class ServiceAuthorizationTest {
     var contracts = mock(ContractRepository.class);
     var events = mock(EventRecorder.class);
     var catalog = new PrinterService(printers, access);
-    var rentals = new RentalRequestService(requests, Clock.systemUTC(), user, access, events, mock(CustomerDirectory.class));
+    var rentals =
+        new RentalRequestService(
+            requests,
+            Clock.systemUTC(),
+            user,
+            access,
+            events,
+            mock(CustomerDirectory.class),
+            TransactionOperations.withoutTransaction());
     var assignments =
         new PrinterAssignmentService(printers, requests, Clock.systemUTC(), access, events);
     var contract =
@@ -30,7 +39,10 @@ class ServiceAuthorizationTest {
             user,
             access,
             events,
-            org.mockito.Mockito.mock(ContractAccountingObserver.class), mock(CompletionReadings.class));
+            org.mockito.Mockito.mock(ContractAccountingObserver.class),
+            mock(CompletionReadings.class),
+            TransactionOperations.withoutTransaction(),
+            TransactionOperations.withoutTransaction());
     for (Runnable action :
         java.util.List.<Runnable>of(
             () -> catalog.create(null),

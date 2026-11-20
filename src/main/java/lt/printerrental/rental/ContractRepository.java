@@ -1,13 +1,26 @@
 package lt.printerrental.rental;
 
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ContractRepository extends JpaRepository<RentalContract, UUID> {
-  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
-  @org.springframework.data.jpa.repository.Query("select c from RentalContract c where c.id = :id")
-  java.util.Optional<RentalContract> lockForAccounting(
-      @org.springframework.data.repository.query.Param("id") java.util.UUID id);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select c from RentalContract c where c.id = :id")
+  Optional<RentalContract> lockById(@Param("id") UUID id);
+
+  @Query(
+      "select new lt.printerrental.rental.ContractLockKeys(c.printerId, c.rentalRequestId) "
+          + "from RentalContract c where c.id = :id")
+  Optional<ContractLockKeys> findLockKeysById(@Param("id") UUID id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select c from RentalContract c where c.id = :id")
+  Optional<RentalContract> lockForAccounting(@Param("id") UUID id);
 
   @org.springframework.data.jpa.repository.Query(
       "select c from RentalContract c, RentalRequest r where c.rentalRequestId=r.id and"

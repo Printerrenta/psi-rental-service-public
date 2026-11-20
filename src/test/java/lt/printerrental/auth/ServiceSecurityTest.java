@@ -29,9 +29,9 @@ class ServiceSecurityTest {
         .andExpect(status().is(200));
     mvc.perform(get("/api/contracts/123").with(user("alice").roles("CUSTOMER")))
         .andExpect(status().is(200));
-    mvc.perform(patch("/api/contracts/123/complete").with(user("alice").roles("CUSTOMER")))
+    mvc.perform(post("/api/contracts/123/complete").with(user("alice").roles("CUSTOMER")))
         .andExpect(status().is(403));
-    mvc.perform(patch("/api/contracts/123/complete").with(user("alice").roles("EMPLOYEE")))
+    mvc.perform(post("/api/contracts/123/complete").with(user("alice").roles("EMPLOYEE")))
         .andExpect(status().is(200));
     mvc.perform(get("/api/printers").with(user("alice").roles("CUSTOMER")))
         .andExpect(status().is(403));

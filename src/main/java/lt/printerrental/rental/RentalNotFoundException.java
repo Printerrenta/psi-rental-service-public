@@ -6,4 +6,8 @@ public class RentalNotFoundException extends RuntimeException {
   public RentalNotFoundException(UUID id) {
     super("Rental request not found: " + id);
   }
+
+  public RentalNotFoundException(String message) {
+    super(message);
+  }
 }

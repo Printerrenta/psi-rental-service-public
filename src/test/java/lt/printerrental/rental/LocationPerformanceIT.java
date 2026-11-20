@@ -45,7 +45,15 @@ class LocationPerformanceIT {
     jdbc = new JdbcTemplate(counted);
     transaction = new TransactionTemplate(new DataSourceTransactionManager(counted));
     transaction.setReadOnly(true);
-    service = new LocationService(jdbc, user, new RentalAccessPolicy(user), requests, "public");
+    service =
+        new LocationService(
+            jdbc,
+            user,
+            new RentalAccessPolicy(user),
+            requests,
+            Clock.systemUTC(),
+            "public",
+            "Europe/Vilnius");
     var day = LocalDate.of(2026, 11, 12);
     for (int i = 0; i < 100; i++) {
       var location = new UUID(0, i + 1);

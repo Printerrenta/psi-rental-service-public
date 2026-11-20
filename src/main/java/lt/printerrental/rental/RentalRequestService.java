@@ -5,14 +5,17 @@ import java.time.LocalDate;
 import java.util.UUID;
 import lt.printerrental.auth.CurrentUser;
 import lt.printerrental.auth.RentalAccessPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@Transactional(readOnly = true)
 public class RentalRequestService {
   private final RentalRequestRepository repository;
   private final Clock clock;
@@ -20,58 +23,98 @@ public class RentalRequestService {
   private final CurrentUser currentUser;
   private final RentalAccessPolicy access;
   private final lt.printerrental.auth.CustomerDirectory customers;
+  private final TransactionOperations writeTransaction;
 
+  @Autowired
   public RentalRequestService(
       RentalRequestRepository repository,
       Clock clock,
       CurrentUser currentUser,
       RentalAccessPolicy access,
       lt.printerrental.events.EventRecorder events,
-      lt.printerrental.auth.CustomerDirectory customers) {
+      lt.printerrental.auth.CustomerDirectory customers,
+      PlatformTransactionManager transactionManager) {
+    this(
+        repository,
+        clock,
+        currentUser,
+        access,
+        events,
+        customers,
+        new TransactionTemplate(transactionManager));
+  }
+
+  RentalRequestService(
+      RentalRequestRepository repository,
+      Clock clock,
+      CurrentUser currentUser,
+      RentalAccessPolicy access,
+      lt.printerrental.events.EventRecorder events,
+      lt.printerrental.auth.CustomerDirectory customers,
+      TransactionOperations writeTransaction) {
     this.repository = repository;
     this.clock = clock;
     this.events = events;
     this.currentUser = currentUser;
     this.access = access;
     this.customers = customers;
+    this.writeTransaction = writeTransaction;
   }
 
-  @Transactional
   public RentalResponse create(CreateRentalRequest input) {
-    String owner=currentUser.subject();
-    if (input.ownerSubject()!=null) {
+    String owner = currentUser.subject();
+    CreateRentalRequest resolvedInput = input;
+    if (input.ownerSubject() != null) {
       access.requireStaff();
-      if (input.ownerSubject().isBlank()) throw new IllegalArgumentException("Pasirinkite kliento paskyrą.");
-      var customer=customers.get(input.ownerSubject());
-      if (!input.ownerSubject().equals(customer.subject()) || customer.role()!=lt.printerrental.auth.UserRole.CUSTOMER)
+      if (input.ownerSubject().isBlank()) {
+        throw new IllegalArgumentException("Pasirinkite kliento paskyrą.");
+      }
+      var customer = customers.get(input.ownerSubject());
+      if (!input.ownerSubject().equals(customer.subject())
+          || customer.role() != lt.printerrental.auth.UserRole.CUSTOMER) {
         throw new IllegalArgumentException("Pasirinkta paskyra nėra klientas.");
-      owner=customer.subject();
-      input=new CreateRentalRequest(input.customerName(),customer.email(),input.estimatedMonthlyPages(),
-          input.colorPrintingRequired(),input.startDate(),input.endDate(),input.notes());
+      }
+      owner = customer.subject();
+      resolvedInput =
+          new CreateRentalRequest(
+              input.customerName(),
+              customer.email(),
+              input.estimatedMonthlyPages(),
+              input.colorPrintingRequired(),
+              input.startDate(),
+              input.endDate(),
+              input.notes());
     }
-    if (input.startDate().isBefore(LocalDate.now(clock))) {
+    if (resolvedInput.startDate().isBefore(LocalDate.now(clock))) {
       throw new IllegalArgumentException("startDate must be today or later (UTC)");
     }
-    if (input.endDate().isBefore(input.startDate())) {
+    if (resolvedInput.endDate().isBefore(resolvedInput.startDate())) {
       throw new IllegalArgumentException("endDate must be on or after startDate");
     }
-    var request = new RentalRequest(input, clock.instant());
-    request.setOwnerSubject(owner);
-    var saved = repository.saveAndFlush(request);
-    events.record(
-        "RentalRequestCreated",
-        saved.getId(),
-        saved.getOwnerSubject(),
-        java.util.Map.of("status", saved.getStatus().name()));
-    return RentalResponse.from(saved);
+    final String finalOwner = owner;
+    final CreateRentalRequest finalInput = resolvedInput;
+    return writeTransaction.execute(
+        status -> {
+          var request = new RentalRequest(finalInput, clock.instant());
+          request.setOwnerSubject(finalOwner);
+          var saved = repository.saveAndFlush(request);
+          events.record(
+              "RentalRequestCreated",
+              saved.getId(),
+              saved.getOwnerSubject(),
+              java.util.Map.of("status", saved.getStatus().name()));
+          return RentalResponse.from(saved);
+        });
   }
 
+  @Transactional(readOnly = true)
   public RentalResponse get(UUID id) {
     var request = find(id);
     access.requireOwner(request.getOwnerSubject());
     return RentalResponse.from(request);
   }
 
+  @Transactional(readOnly = true)
   public Page<RentalResponse> list(RentalStatus status, int page, int size) {
     var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
     var result =

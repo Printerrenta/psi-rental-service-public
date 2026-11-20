@@ -30,9 +30,11 @@ class ServiceHttpClientTest {
         });
     server.start();
     try {
+      var expectedBase = "http://127.0.0.1:" + server.getAddress().getPort();
       var credentials =
           new ServiceCredentials() {
             public String identityToken(String audience) {
+              assertThat(audience).isEqualTo(expectedBase);
               return "google-token";
             }
 
@@ -43,7 +45,7 @@ class ServiceHttpClientTest {
       var result =
           new ServiceHttpClient(credentials)
               .send(
-                  "http://127.0.0.1:" + server.getAddress().getPort(),
+                  expectedBase + "///",
                   "/api/test?size=1",
                   "POST",
                   "body".getBytes(),

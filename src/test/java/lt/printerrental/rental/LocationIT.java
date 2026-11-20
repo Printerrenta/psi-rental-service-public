@@ -83,6 +83,7 @@ class LocationIT {
   }
   @Test void updateRequiresCurrentVersion() throws Exception {
     var l=location("alice"); String body="{\"name\":\"Kitas\",\"address\":\"Adresas\",\"city\":\"Kaunas\",\"version\":0}";
+    mvc.perform(patch(PATH+"/"+UUID.randomUUID()).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isNotFound());
     mvc.perform(patch(PATH+"/"+l.get("id").asText()).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
     mvc.perform(patch(PATH+"/"+l.get("id").asText()).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isConflict());
   }

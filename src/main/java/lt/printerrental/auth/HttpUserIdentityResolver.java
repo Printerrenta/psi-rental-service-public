@@ -1,8 +1,10 @@
 package lt.printerrental.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.http.HttpResponse;
 import lt.printerrental.transport.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.stereotype.Component;
@@ -23,18 +25,21 @@ public class HttpUserIdentityResolver implements UserIdentityResolver {
   }
 
   public AppUser resolve(Jwt jwt) {
-    var response =
-        client.send(url, "/api/auth/me", "GET", null, null, "Bearer " + jwt.getTokenValue());
+    final HttpResponse<byte[]> response;
+    try {
+      response =
+          client.send(url, "/api/auth/me", "GET", null, null, "Bearer " + jwt.getTokenValue());
+    } catch (UpstreamUnavailableException error) {
+      throw new AuthenticationServiceException("Identity service unavailable", error);
+    }
     if (response.statusCode() == 401 || response.statusCode() == 403)
       throw new InvalidBearerTokenException("Identity rejected");
     if (response.statusCode() != 200)
-      throw new org.springframework.security.authentication.AuthenticationServiceException(
-          "Identity service unavailable");
+      throw new AuthenticationServiceException("Identity service unavailable");
     try {
       return mapper.readValue(response.body(), AppUser.class);
     } catch (Exception error) {
-      throw new org.springframework.security.authentication.AuthenticationServiceException(
-          "Invalid identity response");
+      throw new AuthenticationServiceException("Invalid identity response", error);
     }
   }
 }

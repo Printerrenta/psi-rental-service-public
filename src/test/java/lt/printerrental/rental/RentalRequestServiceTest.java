@@ -12,12 +12,16 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class RentalRequestServiceTest {
@@ -27,10 +31,24 @@ class RentalRequestServiceTest {
   @Mock lt.printerrental.auth.CurrentUser currentUser;
   @Mock lt.printerrental.events.EventRecorder events;
   @Mock lt.printerrental.auth.CustomerDirectory customers;
+  AtomicBoolean inTransaction;
   RentalRequestService service;
 
   @BeforeEach
   void setUp() {
+    inTransaction = new AtomicBoolean(false);
+    TransactionOperations trackingTx =
+        new TransactionOperations() {
+          @Override
+          public <T> T execute(TransactionCallback<T> action) {
+            inTransaction.set(true);
+            try {
+              return action.doInTransaction(new SimpleTransactionStatus());
+            } finally {
+              inTransaction.set(false);
+            }
+          }
+        };
     org.mockito.Mockito.lenient().when(currentUser.subject()).thenReturn("test-admin");
     org.mockito.Mockito.lenient().when(currentUser.isStaff()).thenReturn(true);
     service =
@@ -39,7 +57,9 @@ class RentalRequestServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC),
             currentUser,
             new lt.printerrental.auth.RentalAccessPolicy(currentUser),
-            events, customers);
+            events,
+            customers,
+            trackingTx);
   }
 
   private CreateRentalRequest input(LocalDate start, LocalDate end) {
@@ -47,8 +67,14 @@ class RentalRequestServiceTest {
         " Jonas ", "jonas@example.com", 1000, false, start, end, " Notes ");
   }
   @Test void staffSelectsVerifiedCustomerInsteadOfBecomingOwner() {
-    when(customers.get("alice")).thenReturn(new lt.printerrental.auth.AppUser("alice","real@example.com","Alice",lt.printerrental.auth.UserRole.CUSTOMER));
-    when(repository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+    when(customers.get("alice")).thenAnswer(call -> {
+      assertThat(inTransaction.get()).isFalse();
+      return new lt.printerrental.auth.AppUser("alice","real@example.com","Alice",lt.printerrental.auth.UserRole.CUSTOMER);
+    });
+    when(repository.saveAndFlush(any())).thenAnswer(i -> {
+      assertThat(inTransaction.get()).isTrue();
+      return i.getArgument(0);
+    });
     var result=service.create(new CreateRentalRequest("Alice","untrusted@example.com",1000,false,TODAY,TODAY,null,"alice"));
     var captor=org.mockito.ArgumentCaptor.forClass(RentalRequest.class);
     org.mockito.Mockito.verify(repository).saveAndFlush(captor.capture());

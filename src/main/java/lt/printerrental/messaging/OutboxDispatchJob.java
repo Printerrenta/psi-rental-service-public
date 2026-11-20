@@ -21,7 +21,10 @@ public class OutboxDispatchJob {
     try {
       publisher.publishPending();
     } catch (RuntimeException error) {
-      LOG.warn("Outbox dispatch deferred; committed events will be retried");
+      LOG.warn(
+          "Outbox dispatch deferred; committed events will be retried: {}",
+          error.getMessage(),
+          error);
     }
   }
 }

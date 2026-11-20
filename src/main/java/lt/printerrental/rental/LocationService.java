@@ -1,9 +1,14 @@
 package lt.printerrental.rental;
 
 import jakarta.validation.constraints.*;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import lt.printerrental.auth.CurrentUser;
 import lt.printerrental.auth.RentalAccessPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,13 +20,27 @@ public class LocationService {
   private final CurrentUser user;
   private final RentalAccessPolicy access;
   private final RentalRequestService requests;
+  private final Clock clock;
   private final String schema;
+  private final ZoneId businessZone;
 
-  public LocationService(JdbcTemplate jdbc, CurrentUser user, RentalAccessPolicy access,
-      RentalRequestService requests, @org.springframework.beans.factory.annotation.Value("${DB_SCHEMA:rental}") String schema) {
+  @Autowired
+  public LocationService(
+      JdbcTemplate jdbc,
+      CurrentUser user,
+      RentalAccessPolicy access,
+      RentalRequestService requests,
+      Clock clock,
+      @Value("${DB_SCHEMA:rental}") String schema,
+      @Value("${app.business-zone:Europe/Vilnius}") String businessZone) {
     if (!schema.matches("[a-z][a-z0-9_]*")) throw new IllegalArgumentException("Invalid service schema");
-    this.schema=schema;
-    this.jdbc = jdbc; this.user = user; this.access = access; this.requests = requests;
+    this.schema = schema;
+    this.jdbc = jdbc;
+    this.user = user;
+    this.access = access;
+    this.requests = requests;
+    this.clock = clock;
+    this.businessZone = ZoneId.of(businessZone);
   }
 
   private String sql(String query) {
@@ -68,7 +87,7 @@ public class LocationService {
   }
   public Location get(UUID id) {
     var rows = jdbc.query(sql("SELECT * FROM customer_locations WHERE id=?"), (r,n) -> map(r), id);
-    if (rows.isEmpty()) throw new IllegalArgumentException("Lokacija nerasta.");
+    if (rows.isEmpty()) throw new RentalNotFoundException("Lokacija nerasta.");
     var location = rows.getFirst(); access.requireOwner(location.ownerSubject());
     return withPlacements(List.of(location)).getFirst();
   }
@@ -154,7 +173,8 @@ public class LocationService {
     var location=get(input.locationId());
     if (!location.ownerSubject().equals(owner)) throw new IllegalArgumentException("Lokacija turi priklausyti paraiškos klientui.");
     var r=input.request();
-    if (r.startDate().isBefore(java.time.LocalDate.now(java.time.ZoneOffset.UTC)) || r.endDate().isBefore(r.startDate()))
+    if (r.startDate().isBefore(LocalDate.now(clock.withZone(businessZone)))
+        || r.endDate().isBefore(r.startDate()))
       throw new IllegalArgumentException("Patikrinkite pageidaujamą nuomos laikotarpį.");
     int changed=jdbc.update(sql("UPDATE rental_requests SET customer_name=?,customer_email=?,estimated_monthly_pages=?,color_printing_required=?,start_date=?,end_date=?,notes=?,updated_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=? AND version=? AND status='PENDING'"),
         r.customerName().strip(),r.customerEmail().strip(),r.estimatedMonthlyPages(),r.colorPrintingRequired(),r.startDate(),r.endDate(),r.notes()==null?null:r.notes().strip(),id,input.version());

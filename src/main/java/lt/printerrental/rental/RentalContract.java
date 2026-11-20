@@ -200,7 +200,7 @@ public class RentalContract {
     return finalColorReading == null ? null : finalColorReading - initialColorReading;
   }
 
-  void complete(CompleteContract input, Instant now) {
+  void validateCompletion(CompleteContract input) {
     if (status != ContractStatus.ACTIVE) {
       throw new RentalConflictException("Only an ACTIVE contract can be completed");
     }
@@ -212,6 +212,10 @@ public class RentalContract {
         || input.finalReadingDate().isAfter(endDate)) {
       throw new IllegalArgumentException("Final reading date must be within the rental period");
     }
+  }
+
+  void complete(CompleteContract input, Instant now) {
+    validateCompletion(input);
     finalMonoReading = input.finalMonoReading();
     finalColorReading = input.finalColorReading();
     finalReadingDate = input.finalReadingDate();
