@@ -51,13 +51,20 @@ public class LocationService {
 
   public record Input(@NotBlank @Size(max=120) String name,
       @NotBlank @Size(max=255) String address, @NotBlank @Size(max=120) String city,
-      @Size(max=255) String ownerSubject) {}
+      @Size(max=255) String ownerSubject, @jakarta.validation.Valid GeoPoint position) {}
+  /**
+   * Address edit. A supplied position replaces the pin; without one the pin is kept while the
+   * address stays the same and cleared when the address changes, so a stale pin is never shown.
+   */
   public record Update(@NotNull @PositiveOrZero Long version,
       @NotBlank @Size(max=120) String name, @NotBlank @Size(max=255) String address,
-      @NotBlank @Size(max=120) String city) {}
+      @NotBlank @Size(max=120) String city, @jakarta.validation.Valid GeoPoint position) {}
+  /** Moves only the map pin (e.g. after dragging it on the map). */
+  public record Positioning(@NotNull @PositiveOrZero Long version,
+      @NotNull @jakarta.validation.Valid GeoPoint position) {}
   public record Placement(UUID printerId, long version) {}
   public record Location(UUID id, String ownerSubject, String name, String address,
-      String city, long version, List<Placement> printers) {}
+      String city, long version, List<Placement> printers, GeoPoint position) {}
   public record LocationPage(List<Location> content, int page, int size, long totalElements) {}
   public record Assignment(@NotNull UUID locationId, @NotNull @PositiveOrZero Long version) {}
   public record LocatedRequest(@jakarta.validation.Valid @NotNull CreateRentalRequest request,
@@ -70,7 +77,7 @@ public class LocationService {
   private Location map(java.sql.ResultSet rs) throws java.sql.SQLException {
     UUID id = rs.getObject("id", UUID.class);
     return new Location(id, rs.getString("owner_subject"), rs.getString("name"),
-        rs.getString("address"), rs.getString("city"), rs.getLong("version"), List.of());
+        rs.getString("address"), rs.getString("city"), rs.getLong("version"), List.of(), GeoPoint.from(rs));
   }
   private List<Location> withPlacements(List<Location> locations) {
     if (locations.isEmpty()) return locations;
@@ -83,7 +90,7 @@ public class LocationService {
         locations.stream().map(Location::id).toArray());
     return locations.stream().map(location -> new Location(location.id(), location.ownerSubject(),
         location.name(), location.address(), location.city(), location.version(),
-        List.copyOf(grouped.getOrDefault(location.id(), List.of())))).toList();
+        List.copyOf(grouped.getOrDefault(location.id(), List.of())), location.position())).toList();
   }
   public Location get(UUID id) {
     var rows = jdbc.query(sql("SELECT * FROM customer_locations WHERE id=?"), (r,n) -> map(r), id);
@@ -106,15 +113,27 @@ public class LocationService {
     if (owner.isBlank()) throw new IllegalArgumentException("Pasirinkite klientą.");
     access.requireOwner(owner);
     UUID id = UUID.randomUUID();
-    jdbc.update(sql("INSERT INTO customer_locations(id,owner_subject,name,address,city) VALUES(?,?,?,?,?)"),
-        id,owner,input.name().strip(),input.address().strip(),input.city().strip());
+    jdbc.update(sql("INSERT INTO customer_locations(id,owner_subject,name,address,city,latitude,longitude) VALUES(?,?,?,?,?,?,?)"),
+        id,owner,input.name().strip(),input.address().strip(),input.city().strip(),
+        GeoPoint.latitudeOf(input.position()),GeoPoint.longitudeOf(input.position()));
     return get(id);
   }
   @Transactional
   public Location update(UUID id, Update input) {
-    get(id);
-    int changed = jdbc.update(sql("UPDATE customer_locations SET name=?,address=?,city=?,version=version+1 WHERE id=? AND version=?"),
-        input.name().strip(),input.address().strip(),input.city().strip(),id,input.version());
+    var current = get(id);
+    String address = input.address().strip(), city = input.city().strip();
+    boolean moved = !current.address().equals(address) || !current.city().equals(city);
+    GeoPoint position = input.position() != null ? input.position() : moved ? null : current.position();
+    int changed = jdbc.update(sql("UPDATE customer_locations SET name=?,address=?,city=?,latitude=?,longitude=?,version=version+1 WHERE id=? AND version=?"),
+        input.name().strip(),address,city,GeoPoint.latitudeOf(position),GeoPoint.longitudeOf(position),id,input.version());
+    if (changed != 1) throw new RentalConflictException("Lokacija pasikeitė. Atnaujinkite duomenis.");
+    return get(id);
+  }
+  @Transactional
+  public Location reposition(UUID id, Positioning input) {
+    get(id); // Enforces ownership before any mutation.
+    int changed = jdbc.update(sql("UPDATE customer_locations SET latitude=?,longitude=?,version=version+1 WHERE id=? AND version=?"),
+        input.position().latitude(),input.position().longitude(),id,input.version());
     if (changed != 1) throw new RentalConflictException("Lokacija pasikeitė. Atnaujinkite duomenis.");
     return get(id);
   }

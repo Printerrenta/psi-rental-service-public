@@ -81,6 +81,28 @@ class LocationIT {
         .andExpect(status().isForbidden());
     mvc.perform(get(PATH)).andExpect(status().isUnauthorized());
   }
+  @Test void positionIsStoredMovedAndClearedWhenAddressChanges() throws Exception {
+    var created=mvc.perform(post(PATH).with(user("staff").roles("EMPLOYEE")).contentType(MediaType.APPLICATION_JSON)
+        .content(json.writeValueAsString(Map.of("name","Biuras","address","Gedimino pr. 1","city","Vilnius","ownerSubject","alice",
+            "position",Map.of("latitude",54.687157,"longitude",25.279652)))))
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.position.latitude").value(54.687157)).andReturn();
+    String id=json.readTree(created.getResponse().getContentAsString()).get("id").asText();
+    String move="{\"version\":0,\"position\":{\"latitude\":54.7,\"longitude\":25.3}}";
+    mvc.perform(patch(PATH+"/"+id+"/position").with(user("bob").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON).content(move))
+        .andExpect(status().isForbidden());
+    mvc.perform(patch(PATH+"/"+id+"/position").with(user("staff").roles("EMPLOYEE")).contentType(MediaType.APPLICATION_JSON)
+        .content("{\"version\":0,\"position\":{\"latitude\":91,\"longitude\":25.3}}")).andExpect(status().isBadRequest());
+    mvc.perform(patch(PATH+"/"+id+"/position").with(user("staff").roles("EMPLOYEE")).contentType(MediaType.APPLICATION_JSON).content(move))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.position.longitude").value(25.3)).andExpect(jsonPath("$.version").value(1));
+    mvc.perform(patch(PATH+"/"+id+"/position").with(user("staff").roles("EMPLOYEE")).contentType(MediaType.APPLICATION_JSON).content(move))
+        .andExpect(status().isConflict());
+    mvc.perform(patch(PATH+"/"+id).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON)
+        .content("{\"name\":\"Naujas\",\"address\":\"Gedimino pr. 1\",\"city\":\"Vilnius\",\"version\":1}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.position.latitude").value(54.7));
+    mvc.perform(patch(PATH+"/"+id).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON)
+        .content("{\"name\":\"Naujas\",\"address\":\"Laisvės al. 1\",\"city\":\"Kaunas\",\"version\":2}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.position").value(org.hamcrest.Matchers.nullValue()));
+  }
   @Test void updateRequiresCurrentVersion() throws Exception {
     var l=location("alice"); String body="{\"name\":\"Kitas\",\"address\":\"Adresas\",\"city\":\"Kaunas\",\"version\":0}";
     mvc.perform(patch(PATH+"/"+UUID.randomUUID()).with(user("alice").roles("CUSTOMER")).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isNotFound());

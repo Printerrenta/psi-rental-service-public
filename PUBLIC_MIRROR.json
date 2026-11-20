@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "Printerrenta/psi-rental-service",
-  "sourceCommit": "617ae1fe9a5cd0cb6b9a8f7b598f85db6598cdcd",
+  "sourceCommit": "068f750136940fac098da4a4456f506652a76713",
   "sourceBranch": "main",
   "history": "Independent public snapshots; no private Git history",
   "files": [
@@ -258,12 +258,16 @@
       "sha256": "11d67e3353bc83f4cecdacc1265977c47288a0a4afb773d898c63e72b557a309"
     },
     {
+      "path": "src/main/java/lt/printerrental/rental/GeoPoint.java",
+      "sha256": "e5bc4f478ec5315cd79ffe6544d720eab8453aefb9563e88ffff127ded0c2caf"
+    },
+    {
       "path": "src/main/java/lt/printerrental/rental/LocationController.java",
-      "sha256": "2a30cd3be543536e434e0e600ad2dd61afc5f1b61936ee4afaa10eb66107f2e1"
+      "sha256": "2fb2fe2a88e75ae097d76a7918ed6545bbc6f98d5ff167063514f09cc5cf7e4d"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/LocationService.java",
-      "sha256": "b98c6896e1883d2fc183666d302f6d5624a534614c4fb2fba138dfbe0aaf7a56"
+      "sha256": "dae08a22fa23a589df92a6d41196d2e40c87d6c35bd3389f984e7483f4797aaa"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/Printer.java",
@@ -426,6 +430,10 @@
       "sha256": "bbf1078c9c4a7ea9786af3490d1d3ebe5a276880ccc07c35735735dca6070b0d"
     },
     {
+      "path": "src/main/resources/db/migration/V14__customer_location_positions.sql",
+      "sha256": "3e305a3d6a6a357ba48d291a44dc86c4b28baf6c3c6fa0c19ca509621ae94670"
+    },
+    {
       "path": "src/main/resources/db/migration/V1__create_rental_requests.sql",
       "sha256": "5869e17d18d6cd822c585e411d7525bed6409c5d648ffbd404c87ec44c699b2f"
     },
@@ -519,7 +527,7 @@
     },
     {
       "path": "src/test/java/lt/printerrental/rental/LocationIT.java",
-      "sha256": "333eb733960e61b81a6346fe613bb30c7dd9cf04226d6b50adee5ddeb640c359"
+      "sha256": "965a3404adf3d5b2a4148561e0dfe28721efdafa17f45e69ce9bea138ce3d3a6"
     },
     {
       "path": "src/test/java/lt/printerrental/rental/LocationPerformanceIT.java",
@@ -639,6 +647,7 @@
     "src/main/java/lt/printerrental/rental/CreateContract.java",
     "src/main/java/lt/printerrental/rental/CreatePrinter.java",
     "src/main/java/lt/printerrental/rental/CreateRentalRequest.java",
+    "src/main/java/lt/printerrental/rental/GeoPoint.java",
     "src/main/java/lt/printerrental/rental/LocationController.java",
     "src/main/java/lt/printerrental/rental/LocationService.java",
     "src/main/java/lt/printerrental/rental/Printer.java",
@@ -681,6 +690,7 @@
     "src/main/resources/db/migration/V11__customer_locations.sql",
     "src/main/resources/db/migration/V12__completion_counters.sql",
     "src/main/resources/db/migration/V13__contract_printer_index.sql",
+    "src/main/resources/db/migration/V14__customer_location_positions.sql",
     "src/main/resources/db/migration/V1__create_rental_requests.sql",
     "src/main/resources/db/migration/V2__printer_rental_requirements.sql",
     "src/main/resources/db/migration/V3__printer_catalog.sql",

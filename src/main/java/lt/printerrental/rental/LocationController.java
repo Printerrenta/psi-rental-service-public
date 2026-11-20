@@ -24,6 +24,10 @@ public class LocationController {
   public LocationService.Location update(@PathVariable UUID id,@Valid @RequestBody LocationService.Update input) {
     return service.update(id,input);
   }
+  @PatchMapping("/{id}/position")
+  public LocationService.Location reposition(@PathVariable UUID id,@Valid @RequestBody LocationService.Positioning input) {
+    return service.reposition(id,input);
+  }
   @PatchMapping("/printers/{id}")
   public LocationService.Location assign(@PathVariable UUID id,@Valid @RequestBody LocationService.Assignment input) {
     return service.assign(id,input);
