@@ -24,7 +24,13 @@ public interface ContractRepository extends JpaRepository<RentalContract, UUID> 
 
   @org.springframework.data.jpa.repository.Query(
       "select c from RentalContract c, RentalRequest r where c.rentalRequestId=r.id and"
-          + " r.ownerSubject=:owner")
+          + " (c.status <> 'DRAFT' or r.status <> 'CANCELLED')")
+  org.springframework.data.domain.Page<RentalContract> findVisible(
+      org.springframework.data.domain.Pageable pageable);
+
+  @org.springframework.data.jpa.repository.Query(
+      "select c from RentalContract c, RentalRequest r where c.rentalRequestId=r.id and"
+          + " r.ownerSubject=:owner and (c.status <> 'DRAFT' or r.status <> 'CANCELLED')")
   org.springframework.data.domain.Page<RentalContract> findOwned(
       @org.springframework.data.repository.query.Param("owner") String owner,
       org.springframework.data.domain.Pageable pageable);

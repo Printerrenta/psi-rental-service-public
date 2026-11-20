@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceRepository": "Printerrenta/psi-rental-service",
-  "sourceCommit": "a2942687eb26f01022431dcba880638fb5add9c6",
+  "sourceCommit": "617ae1fe9a5cd0cb6b9a8f7b598f85db6598cdcd",
   "sourceBranch": "main",
   "history": "Independent public snapshots; no private Git history",
   "files": [
@@ -235,11 +235,11 @@
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractRepository.java",
-      "sha256": "be947f3395e887d996695e5c6094d913f95c4721e11a4a1553d5934585ca3663"
+      "sha256": "995ba014341053caefe70bd320f458767b5fd516c3f1f0b740ff21f86580f453"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractService.java",
-      "sha256": "6f048331d44faa20c716f67c95bd6dda9147dab7508d94b62b818aa79b48df63"
+      "sha256": "fbc8167987a894293ae5c27909c0449b85a125bfe3b2bfaa2931b8cc5543ae9d"
     },
     {
       "path": "src/main/java/lt/printerrental/rental/ContractStatus.java",

@@ -249,7 +249,7 @@ public class ContractService {
   public Page<RentalContract> list(int page, int size) {
     var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
     return currentUser.isStaff()
-        ? contracts.findAll(pageable)
+        ? contracts.findVisible(pageable)
         : contracts.findOwned(currentUser.subject(), pageable);
   }
 
